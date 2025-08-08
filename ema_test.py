@@ -9,7 +9,7 @@ app = Flask(__name__)
 # Initialize webcam with fallback to secondary camera
 camera = cv2.VideoCapture(0)
 if not camera.isOpened():
-    camera = cv2.VideoCapture(1)  # Try secondary camera
+    camera = cv2.VideoCapture(1)
     if not camera.isOpened():
         print("Error: Could not open any camera")
         exit(1)
@@ -24,7 +24,7 @@ eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml
 smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
 
 # Emotion history for temporal smoothing
-emotion_history = deque(maxlen=10)
+emotion_history = deque(maxlen=12)
 current_emotion = "neutral"
 emotion_confidence = 0.0
 
@@ -33,64 +33,66 @@ def preprocess_frame(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.equalizeHist(gray)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
-    # Apply adaptive thresholding to handle lighting variations
     gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                  cv2.THRESH_BINARY, 11, 2)
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)  # Additional noise reduction
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
     return gray
 
 def extract_facial_features(frame, x, y, w, h):
-    """Extract facial features with enhanced robustness."""
+    """Extract facial features with enhanced precision."""
     gray = preprocess_frame(frame)
     face_roi = gray[y:y+h, x:x+w]
     
-    # Fine-tuned cascade parameters for better detection
-    eyes = eye_cascade.detectMultiScale(face_roi, scaleFactor=1.15, minNeighbors=5, minSize=(20, 20))
-    smiles = smile_cascade.detectMultiScale(face_roi, scaleFactor=1.5, minNeighbors=15, minSize=(25, 15))
+    # Optimized cascade parameters
+    eyes = eye_cascade.detectMultiScale(face_roi, scaleFactor=1.1, minNeighbors=6, minSize=(25, 25))
+    smiles = smile_cascade.detectMultiScale(face_roi, scaleFactor=1.4, minNeighbors=20, minSize=(30, 15))
     
-    # Initialize default values for robustness
+    # Initialize default values
     smile_intensity = 0.3
     eye_openness = 0.3
     eyebrow_height = 0.5
     mouth_curvature = 0.5
+    mouth_width_ratio = 0.5
     face_aspect_ratio = w / h if h > 0 else 1.0
     
-    # Smile detection with normalized intensity
+    # Smile detection with additional metrics
     if len(smiles) > 0:
         sx, sy, sw, sh = smiles[0]
-        smile_intensity = min(1.0, (sw * sh) / (w * h) * 5.0)
-        mouth_curvature = min(1.0, sw / (sh * 1.3))
+        smile_intensity = min(1.0, (sw * sh) / (w * h) * 6.0)
+        mouth_curvature = min(1.0, sw / (sh * 1.2))
+        mouth_width_ratio = sw / w if w > 0 else 0.5
         mouth_position = sy / h
-        if mouth_position > 0.65:
-            mouth_curvature *= 0.85
+        if mouth_position > 0.6:
+            mouth_curvature *= 0.9
     
     # Eye detection with refined metrics
     if len(eyes) >= 2:
-        eye1, eye2 = sorted(eyes[:2], key=lambda e: e[0])  # Sort by x-coordinate
+        eye1, eye2 = sorted(eyes[:2], key=lambda e: e[0])
         ey1, ey2 = eye1[1], eye2[1]
-        eye_openness = min(1.0, (eye1[3] + eye2[3]) / (h * 0.4))
-        eyebrow_height = min(1.0, max(0.0, (y - min(ey1, ey2)) / (h * 0.35)))
+        eye_openness = min(1.0, (eye1[3] + eye2[3]) / (h * 0.35))
+        eyebrow_height = min(1.0, max(0.0, (y - min(ey1, ey2)) / (h * 0.3)))
     elif len(eyes) == 1:
-        eye_openness = min(1.0, eyes[0][3] / (h * 0.2))
-        eyebrow_height = min(1.0, max(0.0, (y - eyes[0][1]) / (h * 0.4)))
+        eye_openness = min(1.0, eyes[0][3] / (h * 0.25))
+        eyebrow_height = min(1.0, max(0.0, (y - eyes[0][1]) / (h * 0.35)))
     
-    # Adjust for face aspect ratio
-    if 0.8 < face_aspect_ratio < 1.2:
-        smile_intensity *= 1.1
-        eye_openness *= 1.1
+    # Normalize features
+    if 0.75 < face_aspect_ratio < 1.25:
+        smile_intensity = min(1.0, smile_intensity * 1.15)
+        eye_openness = min(1.0, eye_openness * 1.15)
     
-    return [smile_intensity, eye_openness, eyebrow_height, mouth_curvature, face_aspect_ratio]
+    return [smile_intensity, eye_openness, eyebrow_height, mouth_curvature, mouth_width_ratio, face_aspect_ratio]
 
 def detect_emotion(features):
-    """Rule-based emotion detection with confidence scores."""
-    smile_intensity, eye_openness, eyebrow_height, mouth_curvature, face_aspect_ratio = features
+    """Rule-based emotion detection with improved precision and confidence."""
+    smile_intensity, eye_openness, eyebrow_height, mouth_curvature, mouth_width_ratio, face_aspect_ratio = features
     
-    # Dynamic thresholds based on feature reliability
-    smile_threshold = 0.55 if smile_intensity > 0.35 else 0.45
-    eye_threshold = 0.65 if eye_openness > 0.35 else 0.45
-    brow_threshold = 0.55 if eyebrow_height > 0.35 else 0.45
+    # Dynamic thresholds
+    smile_threshold = 0.6 if smile_intensity > 0.4 else 0.5
+    eye_threshold = 0.7 if eye_openness > 0.4 else 0.5
+    brow_threshold = 0.6 if eyebrow_height > 0.4 else 0.5
+    mouth_threshold = 0.6 if mouth_width_ratio > 0.4 else 0.5
     
-    # Emotion rules with confidence
+    # Emotion rules with weighted confidence
     emotions = {
         "happiness": 0.0,
         "sadness": 0.0,
@@ -101,23 +103,26 @@ def detect_emotion(features):
         "neutral": 0.0
     }
     
-    if smile_intensity > smile_threshold and mouth_curvature > 0.5:
-        emotions["happiness"] = 0.9 * smile_intensity + 0.1 * mouth_curvature
-    if smile_intensity < 0.3 and eye_openness < 0.4 and eyebrow_height > brow_threshold:
-        emotions["sadness"] = 0.7 * (1 - smile_intensity) + 0.3 * eyebrow_height
-    if eye_openness > eye_threshold and eyebrow_height > brow_threshold:
-        emotions["surprise"] = 0.8 * eye_openness + 0.2 * eyebrow_height
-    if smile_intensity < 0.3 and eyebrow_height > brow_threshold and mouth_curvature < 0.4:
-        emotions["anger"] = 0.6 * (1 - smile_intensity) + 0.4 * eyebrow_height
-    if eye_openness > eye_threshold and smile_intensity < 0.3 and eyebrow_height > brow_threshold:
-        emotions["fear"] = 0.7 * eye_openness + 0.3 * (1 - smile_intensity)
-    if smile_intensity < 0.3 and mouth_curvature < 0.3 and eyebrow_height > 0.5:
-        emotions["disgust"] = 0.6 * (1 - mouth_curvature) + 0.4 * eyebrow_height
-    emotions["neutral"] = 0.5 if max(emotions.values()) < 0.4 else 0.0
+    if smile_intensity > smile_threshold and mouth_curvature > 0.55 and mouth_width_ratio > mouth_threshold:
+        emotions["happiness"] = 0.5 * smile_intensity + 0.3 * mouth_curvature + 0.2 * mouth_width_ratio
+    if smile_intensity < 0.35 and eye_openness < 0.45 and eyebrow_height > brow_threshold:
+        emotions["sadness"] = 0.5 * (1 - smile_intensity) + 0.3 * (1 - eye_openness) + 0.2 * eyebrow_height
+    if eye_openness > eye_threshold and eyebrow_height > brow_threshold and mouth_width_ratio > 0.5:
+        emotions["surprise"] = 0.5 * eye_openness + 0.3 * eyebrow_height + 0.2 * mouth_width_ratio
+    if smile_intensity < 0.35 and eyebrow_height > brow_threshold and mouth_curvature < 0.45:
+        emotions["anger"] = 0.4 * (1 - smile_intensity) + 0.4 * eyebrow_height + 0.2 * (1 - mouth_curvature)
+    if eye_openness > eye_threshold and smile_intensity < 0.35 and eyebrow_height > brow_threshold:
+        emotions["fear"] = 0.5 * eye_openness + 0.3 * (1 - smile_intensity) + 0.2 * eyebrow_height
+    if smile_intensity < 0.35 and mouth_curvature < 0.35 and eyebrow_height > 0.55:
+        emotions["disgust"] = 0.4 * (1 - mouth_curvature) + 0.3 * eyebrow_height + 0.3 * (1 - smile_intensity)
+    emotions["neutral"] = 0.6 if max(emotions.values()) < 0.5 else 0.0
     
-    # Return emotion with highest confidence
+    # Return emotion with highest confidence if above threshold
     emotion = max(emotions, key=emotions.get)
     confidence = emotions[emotion]
+    if confidence < 0.4:
+        emotion = "neutral"
+        confidence = 0.6
     return emotion, confidence
 
 def generate_frames():
@@ -129,7 +134,7 @@ def generate_frames():
         
         frame = cv2.resize(frame, (640, 480))
         gray = preprocess_frame(frame)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.15, minNeighbors=5, minSize=(30, 30))
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6, minSize=(40, 40))
         
         emotion = "neutral"
         confidence = 0.0
@@ -139,11 +144,11 @@ def generate_frames():
             
             # Temporal smoothing with weighted voting
             emotion_history.append((emotion, confidence))
-            if len(emotion_history) >= 5:
+            if len(emotion_history) >= 6:
                 emotion_counts = {}
                 total_weight = 0.0
                 for i, (e, c) in enumerate(emotion_history):
-                    weight = 1.0 + (i / len(emotion_history)) * 0.7
+                    weight = 1.0 + (i / len(emotion_history)) * 0.9
                     emotion_counts[e] = emotion_counts.get(e, 0) + weight * c
                     total_weight += weight
                 emotion = max(emotion_counts, key=emotion_counts.get)
