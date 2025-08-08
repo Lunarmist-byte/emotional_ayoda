@@ -3,28 +3,271 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Emotion Detection Live Feed</title>
+    <title>Emotion-Based Music Player</title>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #f0f0f0;
-            margin: 0;
-            padding: 20px;
+        :root {
+            --background-color: #1a1a1a;
+            --text-color: #ffffff;
+            --accent-color: #00d1b2;
+            --card-background: #2c2c2c;
+            --border-color: #444444;
+            --shadow-color: rgba(0, 0, 0, 0.3);
+            --emotion-color: #444444; /* Default neutral */
         }
-        img {
-            width: 640px;
-            height: 480px;
-            border: 2px solid #333;
-            border-radius: 8px;
+        [data-theme="light"] {
+            --background-color: #f5f5f5;
+            --text-color: #333333;
+            --card-background: #ffffff;
+            --border-color: #dddddd;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --emotion-color: #cccccc; /* Default neutral */
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--emotion-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-color 0.5s ease, color 0.3s ease;
+        }
+        .container {
+            max-width: 800px;
+            background: var(--card-background);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 24px var(--shadow-color);
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.5s ease-out;
+            text-align: center;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         h1 {
-            color: #333;
+            font-size: 28px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        #video-feed {
+            width: 640px;
+            height: 480px;
+            border-radius: 12px;
+            border: 2px solid var(--border-color);
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+        #video-feed:hover {
+            transform: scale(1.02);
+        }
+        .emotion-display {
+            font-size: 20px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: var(--accent-color);
+            color: #ffffff;
+            display: inline-block;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-10px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+        button {
+            padding: 12px 24px;
+            background: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background 0.3s ease, transform 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        button:hover {
+            background: #00e6c3;
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        #spotify-status, #current-track {
+            font-size: 16px;
+            margin: 8px 0;
+            opacity: 0.9;
+            animation: fadeIn 0.5s ease-out;
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 24px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+        .theme-toggle:hover {
+            transform: rotate(15deg);
         }
     </style>
 </head>
 <body>
-    <h1>Emotion Detection Live Feed</h1>
-    <img src="/video_feed" alt="Live Camera Feed">
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Theme">🌙</button>
+    <div class="container">
+        <h1>Emotion-Based Music Player</h1>
+        <img id="video-feed" src="/video_feed" alt="Live Camera Feed">
+        <div class="emotion-display" id="emotion-display">Emotion: Neutral</div>
+        <div class="controls">
+            <div id="spotify-status">Spotify: Not connected</div>
+            <div id="current-track">No track playing</div>
+            <button id="play-pause" disabled>Play</button>
+        </div>
+    </div>
+    <script>
+        let player;
+        let currentEmotion = 'neutral';
+        let deviceId = '';
+        const emotionPlaylists = {
+            happiness: 'spotify:playlist:37i9dQZF1DXdPec7aLTmlC', // Happy Hits
+            sadness: 'spotify:playlist:37i9dQZF1DX3YSRoSdA634', // Sad Songs
+            surprise: 'spotify:playlist:37i9dQZF1DX6uhsAfngG4H', // Surprise Party
+            anger: 'spotify:playlist:37i9dQZF1DX1vSJnMeoy3V', // Angry Metal
+            fear: 'spotify:playlist:37i9dQZF1DXa9xHlDa5fc6', // Spooky
+            disgust: 'spotify:playlist:37i9dQZF1DXbVhgADFyc3K', // Dark & Stormy
+            neutral: 'spotify:playlist:37i9dQZF1DX0XUsuxWHRQd'  // Chill Hits
+        };
+        const emotionColors = {
+            happiness: '#ffd700', // Bright yellow
+            sadness: '#4682b4',   // Steel blue
+            surprise: '#ff69b4',  // Hot pink
+            anger: '#dc143c',     // Crimson
+            fear: '#6a5acd',      // Slate blue
+            disgust: '#228b22',   // Forest green
+            neutral: '#444444'    // Dark grey (dark), #cccccc (light)
+        };
+
+        // Initialize Spotify Web Playback SDK
+        window.onSpotifyWebPlaybackSDKReady = () => {
+            player = new Spotify.Player({
+                name: 'Emotion-Based Music Player',
+                getOAuthToken: cb => {
+                    cb('YOUR_SPOTIFY_ACCESS_TOKEN');
+                },
+                volume: 0.5
+            });
+
+            player.addListener('ready', ({ device_id }) => {
+                deviceId = device_id;
+                document.getElementById('spotify-status').textContent = 'Spotify: Connected';
+                document.getElementById('play-pause').disabled = false;
+                fetchAlbumArt();
+            });
+
+            player.addListener('player_state_changed', state => {
+                if (state && state.track_window.current_track) {
+                    const track = state.track_window.current_track;
+                    document.getElementById('current-track').textContent = 
+                        `Playing: ${track.name} by ${track.artists[0].name}`;
+                }
+            });
+
+            player.connect();
+        };
+
+        // Toggle play/pause
+        document.getElementById('play-pause').addEventListener('click', () => {
+            player.getCurrentState().then(state => {
+                if (!state) return;
+                if (state.paused) {
+                    player.resume();
+                    document.getElementById('play-pause').textContent = 'Pause';
+                } else {
+                    player.pause();
+                    document.getElementById('play-pause').textContent = 'Play';
+                }
+            });
+        });
+
+        // Play playlist based on emotion
+        function playEmotionPlaylist(emotion) {
+            if (!deviceId) return;
+            fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ context_uri: emotionPlaylists[emotion] || emotionPlaylists.neutral }),
+                headers: {
+                    'Authorization': 'Bearer YOUR_SPOTIFY_ACCESS_TOKEN',
+                    'Content-Type': 'application/json'
+                }
+            }).catch(error => console.error('Error playing playlist:', error));
+        }
+
+        // Fetch album art
+        function fetchAlbumArt() {
+            player.getCurrentState().then(state => {
+                if (state && state.track_window.current_track) {
+                    const track = state.track_window.current_track;
+                    // No longer setting album art as wallpaper; using emotion colors instead
+                }
+            });
+        }
+
+        // Update background color based on emotion
+        function updateBackgroundColor(emotion) {
+            const lightMode = document.documentElement.getAttribute('data-theme') === 'light';
+            const color = lightMode && emotion === 'neutral' ? '#cccccc' : emotionColors[emotion] || '#444444';
+            document.documentElement.style.setProperty('--emotion-color', color);
+        }
+
+        // Toggle dark/light mode
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', currentTheme === 'dark' ? 'light' : 'dark');
+            const toggleButton = document.querySelector('.theme-toggle');
+            toggleButton.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+            updateBackgroundColor(currentEmotion); // Update color for new theme
+        }
+
+        // Poll for emotion updates
+        setInterval(() => {
+            fetch('/status')
+                .then(response => response.json())
+                .then(data => {
+                    const detectedEmotion = data.emotion;
+                    if (detectedEmotion !== currentEmotion) {
+                        currentEmotion = detectedEmotion;
+                        document.getElementById('emotion-display').textContent = 
+                            `Emotion: ${detectedEmotion.charAt(0).toUpperCase() + detectedEmotion.slice(1)}`;
+                        document.getElementById('emotion-display').classList.remove('slideIn');
+                        void document.getElementById('emotion-display').offsetWidth; // Trigger reflow
+                        document.getElementById('emotion-display').classList.add('slideIn');
+                        playEmotionPlaylist(detectedEmotion);
+                        updateBackgroundColor(detectedEmotion);
+                    }
+                })
+                .catch(error => console.error('Error fetching emotion:', error));
+        }, 2000);
+    </script>
 </body>
 </html>
