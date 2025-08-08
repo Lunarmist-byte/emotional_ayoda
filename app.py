@@ -3,7 +3,7 @@ import cv2, random, os, threading, pygame, time, logging
 from datetime import datetime
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from emotion_utils import EmotionDetector
+from emotion_utlis import EmotionDetector
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
