@@ -1,7 +1,7 @@
 <img width="3188" height="1202" alt="frame (3)" src="https://github.com/user-attachments/assets/517ad8e9-ad22-457d-9538-a9e62d137cd7" />
 
 
-# Ethra anne height monnee 🎯
+# emotional_ayoda☹️
 
 
 ## Basic Details
@@ -13,13 +13,13 @@
 - Member 2: Aswin S Tushar - College of engineering and management punnapra
 
 ### Project Description
-Just finds height and width using some damn ml and ai bro
+Analyses a persons face, detects the person's mood and displays an emogi similar to that mood.it also changes his spotify playlist,wallpaper and also plays a specific background music to suit the persons emotion.
 
 ### The Problem (that doesn't exist)
-I dont have enough money to buy a measuring tape
+I dont have a person that knows my emotions and knows me well.
 
 ### The Solution (that nobody asked for)
-Use my gaming ahh pc to find the height and width(no body shaming fr)
+get self trolled sometimes to avoid getting trolled by others
 
 ## Technical Details
 ### Technologies/Components Used
@@ -81,8 +81,8 @@ For Hardware:
 [Add any extra demo materials/links]
 
 ## Team Contributions
-- [Name 1]: [Specific contributions]
-- [Name 2]: [Specific contributions]
+- [Amal S Kumar]: [Specific contributions]
+- [Aswin S Tushar]: [Specific contributions]
 - [Name 3]: [Specific contributions]
 
 ---
