@@ -3,10 +3,13 @@ import numpy as np
 from flask import Flask, Response, render_template, jsonify
 from collections import deque
 import os
+import requests
+import time
+import base64
 
 app = Flask(__name__)
 
-# Initialize webcam with fallback to secondary camera
+# Initialize webcam with fallback
 camera = cv2.VideoCapture(0)
 if not camera.isOpened():
     camera = cv2.VideoCapture(1)
@@ -14,7 +17,7 @@ if not camera.isOpened():
         print("Error: Could not open any camera")
         exit(1)
 
-# Initialize Haar Cascades with verified paths
+# Initialize Haar Cascades
 cascade_path = cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
 if not os.path.exists(cascade_path):
     print(f"Error: Haar cascade file not found at {cascade_path}")
@@ -28,8 +31,43 @@ emotion_history = deque(maxlen=12)
 current_emotion = "neutral"
 emotion_confidence = 0.0
 
+# Spotify API configuration
+SPOTIFY_CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'  # Replace with your Spotify Client ID
+SPOTIFY_CLIENT_SECRET = 'YOUR_SPOTIFY_CLIENT_SECRET'  # Replace with your Spotify Client Secret
+SPOTIFY_ACCESS_TOKEN = None
+TOKEN_EXPIRY = 0
+
+def get_spotify_token():
+    """Fetch or refresh Spotify access token."""
+    global SPOTIFY_ACCESS_TOKEN, TOKEN_EXPIRY
+    if time.time() > TOKEN_EXPIRY:
+        try:
+            auth_string = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
+            auth_bytes = auth_string.encode('utf-8')
+            auth_base64 = base64.b64encode(auth_bytes).decode('utf-8')
+            response = requests.post(
+                'https://accounts.spotify.com/api/token',
+                data={'grant_type': 'client_credentials'},
+                headers={'Authorization': f'Basic {auth_base64}'}
+            )
+            response.raise_for_status()
+            token_data = response.json()
+            SPOTIFY_ACCESS_TOKEN = token_data['access_token']
+            TOKEN_EXPIRY = time.time() + token_data['expires_in'] - 60
+        except requests.RequestException as e:
+            print(f"Error fetching Spotify token: {e}")
+            SPOTIFY_ACCESS_TOKEN = None
+    return SPOTIFY_ACCESS_TOKEN
+
+@app.route('/get_spotify_token')
+def get_token():
+    token = get_spotify_token()
+    if token:
+        return jsonify({'access_token': token})
+    return jsonify({'error': 'Failed to fetch Spotify token'}), 500
+
 def preprocess_frame(frame):
-    """Preprocess frame for robust detection under varying conditions."""
+    """Preprocess frame for robust detection."""
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     gray = cv2.equalizeHist(gray)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -39,15 +77,13 @@ def preprocess_frame(frame):
     return gray
 
 def extract_facial_features(frame, x, y, w, h):
-    """Extract facial features with enhanced precision."""
+    """Extract facial features with high precision."""
     gray = preprocess_frame(frame)
     face_roi = gray[y:y+h, x:x+w]
     
-    # Optimized cascade parameters
     eyes = eye_cascade.detectMultiScale(face_roi, scaleFactor=1.1, minNeighbors=6, minSize=(25, 25))
     smiles = smile_cascade.detectMultiScale(face_roi, scaleFactor=1.4, minNeighbors=20, minSize=(30, 15))
     
-    # Initialize default values
     smile_intensity = 0.3
     eye_openness = 0.3
     eyebrow_height = 0.5
@@ -55,7 +91,6 @@ def extract_facial_features(frame, x, y, w, h):
     mouth_width_ratio = 0.5
     face_aspect_ratio = w / h if h > 0 else 1.0
     
-    # Smile detection with additional metrics
     if len(smiles) > 0:
         sx, sy, sw, sh = smiles[0]
         smile_intensity = min(1.0, (sw * sh) / (w * h) * 6.0)
@@ -65,7 +100,6 @@ def extract_facial_features(frame, x, y, w, h):
         if mouth_position > 0.6:
             mouth_curvature *= 0.9
     
-    # Eye detection with refined metrics
     if len(eyes) >= 2:
         eye1, eye2 = sorted(eyes[:2], key=lambda e: e[0])
         ey1, ey2 = eye1[1], eye2[1]
@@ -75,7 +109,6 @@ def extract_facial_features(frame, x, y, w, h):
         eye_openness = min(1.0, eyes[0][3] / (h * 0.25))
         eyebrow_height = min(1.0, max(0.0, (y - eyes[0][1]) / (h * 0.35)))
     
-    # Normalize features
     if 0.75 < face_aspect_ratio < 1.25:
         smile_intensity = min(1.0, smile_intensity * 1.15)
         eye_openness = min(1.0, eye_openness * 1.15)
@@ -83,16 +116,14 @@ def extract_facial_features(frame, x, y, w, h):
     return [smile_intensity, eye_openness, eyebrow_height, mouth_curvature, mouth_width_ratio, face_aspect_ratio]
 
 def detect_emotion(features):
-    """Rule-based emotion detection with improved precision and confidence."""
+    """Rule-based emotion detection with high precision."""
     smile_intensity, eye_openness, eyebrow_height, mouth_curvature, mouth_width_ratio, face_aspect_ratio = features
     
-    # Dynamic thresholds
     smile_threshold = 0.6 if smile_intensity > 0.4 else 0.5
     eye_threshold = 0.7 if eye_openness > 0.4 else 0.5
     brow_threshold = 0.6 if eyebrow_height > 0.4 else 0.5
     mouth_threshold = 0.6 if mouth_width_ratio > 0.4 else 0.5
     
-    # Emotion rules with weighted confidence
     emotions = {
         "happiness": 0.0,
         "sadness": 0.0,
@@ -117,7 +148,6 @@ def detect_emotion(features):
         emotions["disgust"] = 0.4 * (1 - mouth_curvature) + 0.3 * eyebrow_height + 0.3 * (1 - smile_intensity)
     emotions["neutral"] = 0.6 if max(emotions.values()) < 0.5 else 0.0
     
-    # Return emotion with highest confidence if above threshold
     emotion = max(emotions, key=emotions.get)
     confidence = emotions[emotion]
     if confidence < 0.4:
@@ -126,6 +156,7 @@ def detect_emotion(features):
     return emotion, confidence
 
 def generate_frames():
+    """Generate video frames with emotion overlay."""
     global current_emotion, emotion_confidence
     while True:
         success, frame = camera.read()
@@ -142,7 +173,6 @@ def generate_frames():
             features = extract_facial_features(frame, x, y, w, h)
             emotion, confidence = detect_emotion(features)
             
-            # Temporal smoothing with weighted voting
             emotion_history.append((emotion, confidence))
             if len(emotion_history) >= 6:
                 emotion_counts = {}
@@ -154,7 +184,6 @@ def generate_frames():
                 emotion = max(emotion_counts, key=emotion_counts.get)
                 confidence = emotion_counts[emotion] / total_weight
             
-            # Draw bounding box and emotion label
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(frame, f'{emotion.upper()} ({confidence:.2f})', (x, y - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
