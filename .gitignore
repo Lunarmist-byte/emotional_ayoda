@@ -1,0 +1,33 @@
+# Virtual environment
+venv/
+.env
+.env.*
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite3
+
+# Flask stuff
+instance/
+.webassets-cache
+
+# Pytest cache
+.pytest_cache/
