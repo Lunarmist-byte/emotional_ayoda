@@ -26,28 +26,61 @@ get self trolled sometimes to avoid getting trolled by others
 For Software:
 - Python,HTML/CSS
 - Flask
-- opencv-python,torch, torchvision,transformers,numpy,ultralytics
+- opencv-python==4.8.1.78,Flask==2.3.3,requests==2.31.0,numpy==1.26.4
 
 ### Implementation
 For Software:
 # Installation
-[commands]
+# Clone the Repository
+git clone https://github.com/your-repo/emotional_ayoda.git
+cd emotional_ayoda
+
+# make env
+# Create venv
+python -m venv venv
+
+# Activate venv
+source venv/bin/activate      # Mac/Linux
+venv\Scripts\activate         # Windows
+
+#install dependencies
+Install Dependencies
+
+pip install -r requirements.txt
+
 
 # Run
-[commands]
+🎧 Spotify API Setup
+
+    Go to Spotify Developer Dashboard and log in.
+
+    Create a new app.
+
+    Copy your Client ID and Client Secret.
+
+    In your emotional_ayoda.py, update:
+
+SPOTIFY_CLIENT_ID = "your-client-id"
+SPOTIFY_CLIENT_SECRET = "your-client-secret"
+
+In your Spotify app settings, add the following Redirect URI:
+
+http://localhost:5000/callback
 
 ### Project Documentation
 For Software:
 
 # Screenshots (Add at least 3)
 ![Screenshot1](Add screenshot 1 here with proper name)
-*Add caption explaining what this shows*
+<img width="1074" height="828" alt="Screenshot 2025-08-09 041258" src="https://github.com/user-attachments/assets/46e6f6f4-659a-4871-a70e-4710a66bafdb" />
+
 
 ![Screenshot2](Add screenshot 2 here with proper name)
-*Add caption explaining what this shows*
+<img width="1920" height="1020" alt="Screenshot 2025-08-09 040708" src="https://github.com/user-attachments/assets/58465963-02ab-4da1-a516-8e852f51762e" />
 
 ![Screenshot3](Add screenshot 3 here with proper name)
-*Add caption explaining what this shows*
+
+<img width="981" height="908" alt="Screenshot 2025-08-09 041312" src="https://github.com/user-attachments/assets/8dbd5469-1232-42c7-b9cf-c8669735c2da" />
 
 # Diagrams
 ![Workflow](Add your workflow/architecture diagram here)
@@ -74,8 +107,8 @@ For Hardware:
 
 ### Project Demo
 # Video
-[Add your demo video link here]
-*Explain what the video demonstrates*
+https://drive.google.com/file/d/1KjjM4enOzZCLayTq0XPhsHRwRwYZkd4Q/view?usp=drivesdk
+
 
 # Additional Demos
 [Add any extra demo materials/links]
