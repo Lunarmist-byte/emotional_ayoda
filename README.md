@@ -12,7 +12,7 @@
 ---
 
 ## Project Description
-A system that analyzes a person's face, detects their mood, and displays a matching emoji. It also changes their Spotify playlist, the backplate of the frotnend with respective dark to light shades, and plays specific background music to match the detected emotion. 
+A system that analyzes a person's face, detects their mood and changes their Spotify playlist, the backplate of the frotnend with respective dark to light shades, and plays specific background music to match the detected emotion. 
 Hosted for free on: Due to errors in several hosters due to either memory constraints or build problems, we unfortunately can't host the appln, will try to update asap
 
 ---
