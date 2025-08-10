@@ -68,7 +68,7 @@ pip install -r requirements.txt
 1. Go to **Spotify Developer Dashboard** and log in.  
 2. Create a new app.  
 3. Copy your **Client ID** and **Client Secret**.  
-4. In `emotional_ayoda.py`, update:
+4. In `ema_test.py`, update:
    ```python
    SPOTIFY_CLIENT_ID = "your-client-id"
    SPOTIFY_CLIENT_SECRET = "your-client-secret"
